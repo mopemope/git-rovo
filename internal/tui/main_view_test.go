@@ -258,6 +258,7 @@ func TestRenderQuickActions(t *testing.T) {
 	expectedActions := []string{
 		"Space",
 		"Stage current file",
+		"Discard file changes",
 		"Generate commit message",
 	}
 

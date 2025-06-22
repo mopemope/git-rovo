@@ -291,6 +291,7 @@ func (m *Model) renderQuickActions() string {
 		{"s", "Stage current file"},
 		{"u", "Unstage current file"},
 		{"a", "Stage all files"},
+		{"k", "Discard file changes"},
 		{"g", "Generate commit message"},
 		{"c", "Commit changes"},
 		{"d", "View diff"},

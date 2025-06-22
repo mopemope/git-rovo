@@ -97,6 +97,8 @@ func (m *Model) executeAction(action string) (tea.Model, tea.Cmd) {
 		return m, m.generateCommitMessage()
 	case "reset_file":
 		return m, m.resetCurrentFile()
+	case "discard_changes":
+		return m, m.discardCurrentFileChanges()
 	case "toggle_section":
 		return m, m.toggleCurrentSection()
 	case "select_all":

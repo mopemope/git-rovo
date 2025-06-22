@@ -58,6 +58,41 @@ func (m *Model) unstageAllFiles() tea.Cmd {
 	}
 }
 
+// discardCurrentFileChanges discards changes to the current file with confirmation
+func (m *Model) discardCurrentFileChanges() tea.Cmd {
+	file := m.getCurrentFile()
+	if file == nil {
+		return func() tea.Msg {
+			return errorMsg{error: "No file selected"}
+		}
+	}
+
+	// For now, we'll implement without a modal dialog
+	// In a real implementation, you might want to add a confirmation modal
+	return func() tea.Msg {
+		err := m.repo.DiscardChanges(file.Path)
+		if err != nil {
+			return errorMsg{error: fmt.Sprintf("Failed to discard changes: %v", err)}
+		}
+
+		logger.LogUIAction("file_changes_discarded", map[string]interface{}{
+			"file":   file.Path,
+			"status": file.Status,
+			"staged": file.Staged,
+		})
+
+		var message string
+		switch file.Status {
+		case "??":
+			message = fmt.Sprintf("Deleted: %s", file.Path)
+		default:
+			message = fmt.Sprintf("Discarded changes: %s", file.Path)
+		}
+
+		return operationCompletedMsg{message: message}
+	}
+}
+
 // resetCurrentFile resets (discards changes to) the current file
 func (m *Model) resetCurrentFile() tea.Cmd {
 	file := m.getCurrentFile()

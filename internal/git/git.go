@@ -528,6 +528,70 @@ func (r *Repository) GetLastCommitHash() (string, error) {
 	return strings.TrimSpace(output), nil
 }
 
+// DiscardChanges discards changes to the specified file based on its current status
+func (r *Repository) DiscardChanges(filePath string) error {
+	if filePath == "" {
+		return fmt.Errorf("file path cannot be empty")
+	}
+
+	// Get the current status of the file
+	status, err := r.GetStatus()
+	if err != nil {
+		return fmt.Errorf("failed to get repository status: %v", err)
+	}
+
+	var fileStatus *FileStatus
+	for _, file := range status {
+		if file.Path == filePath {
+			fileStatus = &file
+			break
+		}
+	}
+
+	if fileStatus == nil {
+		return fmt.Errorf("file not found in repository status: %s", filePath)
+	}
+
+	logger.LogGitOperation("discard_changes", []string{filePath}, r.workDir, true, fmt.Sprintf("Starting discard for file: %s (status: %s, staged: %t)", filePath, fileStatus.Status, fileStatus.Staged), nil)
+
+	switch fileStatus.Status {
+	case "??": // Untracked file
+		// Remove untracked file
+		fullPath := filepath.Join(r.workDir, filePath)
+		err := os.Remove(fullPath)
+		if err != nil {
+			logger.LogGitOperation("discard_changes", []string{filePath}, r.workDir, false, "", fmt.Errorf("failed to remove untracked file: %v", err))
+			return fmt.Errorf("failed to remove untracked file %s: %v", filePath, err)
+		}
+		logger.LogGitOperation("discard_changes", []string{filePath}, r.workDir, true, "Untracked file removed", nil)
+
+	default:
+		// For tracked files, handle staged and unstaged changes
+		if fileStatus.Staged {
+			// First unstage the file
+			_, err := r.runGitCommand("reset", "HEAD", "--", filePath)
+			if err != nil {
+				logger.LogGitOperation("discard_changes", []string{"reset", "HEAD", "--", filePath}, r.workDir, false, "", err)
+				return fmt.Errorf("failed to unstage file %s: %v", filePath, err)
+			}
+			logger.LogGitOperation("discard_changes", []string{"reset", "HEAD", "--", filePath}, r.workDir, true, "File unstaged", nil)
+		}
+
+		// Then discard working directory changes
+		if fileStatus.Modified || fileStatus.Staged {
+			_, err := r.runGitCommand("checkout", "HEAD", "--", filePath)
+			if err != nil {
+				logger.LogGitOperation("discard_changes", []string{"checkout", "HEAD", "--", filePath}, r.workDir, false, "", err)
+				return fmt.Errorf("failed to discard changes to file %s: %v", filePath, err)
+			}
+			logger.LogGitOperation("discard_changes", []string{"checkout", "HEAD", "--", filePath}, r.workDir, true, "Changes discarded", nil)
+		}
+	}
+
+	logger.LogGitOperation("discard_changes", []string{filePath}, r.workDir, true, "Discard changes completed", nil)
+	return nil
+}
+
 // RunGitCommand executes a Git command and returns the output (public method)
 func (r *Repository) RunGitCommand(args ...string) (string, error) {
 	return r.runGitCommand(args...)

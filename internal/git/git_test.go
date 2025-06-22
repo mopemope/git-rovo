@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mopemope/git-rovo/internal/logger"
@@ -314,4 +315,160 @@ func TestIsClean(t *testing.T) {
 	if clean {
 		t.Error("Expected repository to not be clean after adding file")
 	}
+}
+
+func TestDiscardChanges(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "git-test-discard-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Initialize git repository
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to init git repo: %v", err)
+	}
+
+	// Configure git user for testing
+	configCmd := exec.Command("git", "config", "user.name", "Test User")
+	configCmd.Dir = tempDir
+	configCmd.Run()
+	configCmd = exec.Command("git", "config", "user.email", "test@example.com")
+	configCmd.Dir = tempDir
+	configCmd.Run()
+
+	repo := &Repository{workDir: tempDir}
+
+	t.Run("Discard untracked file", func(t *testing.T) {
+		// Create untracked file
+		testFile := filepath.Join(tempDir, "untracked.txt")
+		if err := os.WriteFile(testFile, []byte("untracked content"), 0644); err != nil {
+			t.Fatalf("Failed to create untracked file: %v", err)
+		}
+
+		// Verify file exists
+		if _, err := os.Stat(testFile); os.IsNotExist(err) {
+			t.Fatal("Untracked file should exist")
+		}
+
+		// Discard changes (should remove the file)
+		err := repo.DiscardChanges("untracked.txt")
+		if err != nil {
+			t.Fatalf("DiscardChanges failed: %v", err)
+		}
+
+		// Verify file is removed
+		if _, err := os.Stat(testFile); !os.IsNotExist(err) {
+			t.Error("Untracked file should be removed")
+		}
+	})
+
+	t.Run("Discard modified file", func(t *testing.T) {
+		// Create and commit a file
+		testFile := filepath.Join(tempDir, "tracked.txt")
+		originalContent := "original content\n"
+		if err := os.WriteFile(testFile, []byte(originalContent), 0644); err != nil {
+			t.Fatalf("Failed to create tracked file: %v", err)
+		}
+
+		// Add and commit the file
+		addCmd := exec.Command("git", "add", "tracked.txt")
+		addCmd.Dir = tempDir
+		if err := addCmd.Run(); err != nil {
+			t.Fatalf("Failed to add file: %v", err)
+		}
+
+		commitCmd := exec.Command("git", "commit", "-m", "Initial commit")
+		commitCmd.Dir = tempDir
+		if err := commitCmd.Run(); err != nil {
+			t.Fatalf("Failed to commit file: %v", err)
+		}
+
+		// Modify the file
+		modifiedContent := "modified content\n"
+		if err := os.WriteFile(testFile, []byte(modifiedContent), 0644); err != nil {
+			t.Fatalf("Failed to modify file: %v", err)
+		}
+
+		// Discard changes
+		err := repo.DiscardChanges("tracked.txt")
+		if err != nil {
+			t.Fatalf("DiscardChanges failed: %v", err)
+		}
+
+		// Verify file content is restored
+		content, err := os.ReadFile(testFile)
+		if err != nil {
+			t.Fatalf("Failed to read file: %v", err)
+		}
+
+		if string(content) != originalContent {
+			t.Errorf("Expected content '%s', got '%s'", originalContent, string(content))
+		}
+	})
+
+	t.Run("Discard staged file", func(t *testing.T) {
+		// Create and commit a file
+		testFile := filepath.Join(tempDir, "staged.txt")
+		originalContent := "original staged content\n"
+		if err := os.WriteFile(testFile, []byte(originalContent), 0644); err != nil {
+			t.Fatalf("Failed to create staged file: %v", err)
+		}
+
+		// Add and commit the file
+		addCmd := exec.Command("git", "add", "staged.txt")
+		addCmd.Dir = tempDir
+		if err := addCmd.Run(); err != nil {
+			t.Fatalf("Failed to add file: %v", err)
+		}
+
+		commitCmd := exec.Command("git", "commit", "-m", "Add staged file")
+		commitCmd.Dir = tempDir
+		if err := commitCmd.Run(); err != nil {
+			t.Fatalf("Failed to commit file: %v", err)
+		}
+
+		// Modify and stage the file
+		modifiedContent := "modified staged content\n"
+		if err := os.WriteFile(testFile, []byte(modifiedContent), 0644); err != nil {
+			t.Fatalf("Failed to modify file: %v", err)
+		}
+
+		stageCmd := exec.Command("git", "add", "staged.txt")
+		stageCmd.Dir = tempDir
+		if err := stageCmd.Run(); err != nil {
+			t.Fatalf("Failed to stage file: %v", err)
+		}
+
+		// Discard changes
+		err := repo.DiscardChanges("staged.txt")
+		if err != nil {
+			t.Fatalf("DiscardChanges failed: %v", err)
+		}
+
+		// Verify file content is restored
+		content, err := os.ReadFile(testFile)
+		if err != nil {
+			t.Fatalf("Failed to read file: %v", err)
+		}
+
+		if string(content) != originalContent {
+			t.Errorf("Expected content '%s', got '%s'", originalContent, string(content))
+		}
+
+		// Verify file is not staged
+		statusCmd := exec.Command("git", "status", "--porcelain")
+		statusCmd.Dir = tempDir
+		output, err := statusCmd.Output()
+		if err != nil {
+			t.Fatalf("Failed to get status: %v", err)
+		}
+
+		if strings.Contains(string(output), "staged.txt") {
+			t.Error("File should not appear in git status after discard")
+		}
+	})
 }
