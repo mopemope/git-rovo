@@ -29,7 +29,7 @@ A TUI-based Git commit assistant with LLM-powered message generation
 - Full Conventional Commits specification compliance
 - OpenAI GPT integration with multiple model support:
   - GPT-4o (latest and most capable)
-  - GPT-4o-mini (fast and cost-effective)
+  - GPT-4o-mini (fast and cost-effective, default)
   - GPT-4-turbo
   - GPT-4
   - GPT-3.5-turbo
@@ -40,8 +40,10 @@ A TUI-based Git commit assistant with LLM-powered message generation
 ### ⚡ Comprehensive Git Operations
 - Interactive file staging and unstaging
 - Commit history browsing with detailed views
-- Diff viewing with multiple display modes
+- Diff viewing with multiple display modes (unified, side-by-side, word-diff)
 - One-command auto-commit workflow
+- **Commit amending** - Modify the last commit with `1` key
+- **File change discarding** - Discard changes with `k` key
 - Comprehensive logging of all Git operations
 - Support for both staged and untracked file diffs
 
@@ -152,25 +154,33 @@ git-rovo
 - `l`: Switch to log view
 
 **Status View:**
-- `↑/k`, `↓/j`: Navigate files
+- `↑/↓`: Navigate files
 - `Space/Enter`: Toggle file staging
+- `s`: Stage current file
+- `u`: Unstage current file
 - `a`: Stage all files
 - `A`: Unstage all files
 - `g`: Generate commit message
+- `G`: Regenerate commit message
 - `c`: Execute commit
 - `C`: Quick commit (generate + commit)
+- `1`: **Amend last commit** ⭐ *New Feature*
+- `k`: **Discard file changes** ⭐ *New Feature*
+- `R`: Reset current file
+- `Tab`: Toggle section visibility
 
 **Diff View:**
-- `↑/k`, `↓/j`: Scroll content
-- `←/h`, `→/l`: Navigate between files
-- `m`: Cycle diff display modes
+- `↑/↓`: Scroll content
+- `←/→`: Navigate between files
+- `m`: Cycle diff display modes (unified/side-by-side/word-diff)
 - `n`: Toggle line numbers
 - `w`: Toggle line wrapping
 
 **Log View:**
-- `↑/k`, `↓/j`: Navigate commits
+- `↑/↓`: Navigate commits
 - `Enter`: Show commit details
 - `d`: Show commit diff
+- `Ctrl+C`: Copy commit hash
 
 ### Auto-Commit Mode
 
@@ -204,7 +214,7 @@ language = "english"  # or "japanese"
 
 [llm.openai]
 api_key = "your-openai-api-key"  # Optional if using env vars
-model = "gpt-4o-mini"
+model = "gpt-4o-mini"  # Default model
 temperature = 0.7
 max_tokens = 1000
 
@@ -245,6 +255,40 @@ git-rovo config init
 git-rovo --config /path/to/config.toml
 ```
 
+## Advanced Features
+
+### Commit Amending
+
+Modify your last commit easily:
+
+1. Make additional changes to files
+2. Stage the changes (optional)
+3. Press `1` in the TUI to amend the last commit
+4. The tool will use generated message if available, or keep the existing commit message
+
+**Note**: Amending changes the commit hash and rewrites history. Be careful when amending commits that have been pushed to remote repositories.
+
+### File Change Discarding
+
+Safely discard unwanted changes:
+
+1. Navigate to the file you want to discard changes for
+2. Press `k` to discard changes
+3. The tool handles different file states:
+   - **Untracked files**: Completely removed
+   - **Modified files**: Changes reverted to last commit
+   - **Staged files**: Unstaged and changes reverted
+
+**Warning**: This operation cannot be undone. Make sure you want to discard the changes.
+
+### Diff View Modes
+
+Cycle through different diff display modes with `m`:
+
+- **Unified**: Traditional unified diff format
+- **Side-by-side**: Split view showing old and new versions
+- **Word-diff**: Highlights changes at word level
+
 ## Project Architecture
 
 ### Core Components
@@ -269,7 +313,7 @@ git-rovo --config /path/to/config.toml
 
 - **Total Go Files**: 34 files (~9,257 lines of code)
 - **Test Files**: 15 files (~4,021 lines of test code)
-- **Test Coverage**: Comprehensive unit and integration tests
+- **Test Coverage**: 41.4% overall coverage
 - **Dependencies**: Minimal, well-maintained dependencies
 
 ## Development
