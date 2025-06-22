@@ -46,9 +46,7 @@ func (kbm *KeyBindingManager) initializeDefaultBindings() {
 
 		// Navigation bindings
 		{"up", "nav_up", "Move cursor up", []ViewMode{ViewModeStatus, ViewModeLog}},
-		{"k", "nav_up", "Move cursor up", []ViewMode{ViewModeStatus, ViewModeLog}},
 		{"down", "nav_down", "Move cursor down", []ViewMode{ViewModeStatus, ViewModeLog}},
-		{"j", "nav_down", "Move cursor down", []ViewMode{ViewModeStatus, ViewModeLog}},
 		{"home", "nav_home", "Go to top", []ViewMode{ViewModeStatus, ViewModeDiff, ViewModeLog}},
 		{"end", "nav_end", "Go to bottom", []ViewMode{ViewModeStatus, ViewModeDiff, ViewModeLog}},
 		{"pgup", "nav_page_up", "Page up", []ViewMode{ViewModeStatus, ViewModeDiff, ViewModeLog}},
@@ -68,7 +66,7 @@ func (kbm *KeyBindingManager) initializeDefaultBindings() {
 		{"g", "generate_message", "Generate commit message", []ViewMode{ViewModeStatus}},
 		{"G", "regenerate_message", "Regenerate commit message", []ViewMode{ViewModeStatus}},
 		{"R", "reset_file", "Reset current file", []ViewMode{ViewModeStatus}},
-		{"K", "discard_changes", "Discard changes to current file", []ViewMode{ViewModeStatus}},
+		{"k", "discard_changes", "Discard changes to current file", []ViewMode{ViewModeStatus}},
 		{"tab", "toggle_section", "Toggle section", []ViewMode{ViewModeStatus}},
 		{"ctrl+a", "select_all", "Select all files", []ViewMode{ViewModeStatus}},
 		{"ctrl+n", "clear_selection", "Clear selection", []ViewMode{ViewModeStatus}},
