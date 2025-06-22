@@ -169,3 +169,48 @@ func (m *Model) commitStagedChanges() tea.Cmd {
 		return operationCompletedMsg{message: "Commit created successfully"}
 	}
 }
+
+// amendLastCommit amends the last commit
+func (m *Model) amendLastCommit() tea.Cmd {
+	return func() tea.Msg {
+		// Check if there are any commits to amend
+		_, err := m.repo.GetLastCommitHash()
+		if err != nil {
+			return errorMsg{error: "No commits found to amend. Create a commit first."}
+		}
+
+		// Determine commit message to use
+		var commitMessage string
+		if m.generatedMessage != "" {
+			// Use generated message if available
+			commitMessage = m.generatedMessage
+		} else {
+			// Get the existing commit message
+			existingMessage, err := m.repo.GetLastCommitMessage()
+			if err != nil {
+				return errorMsg{error: fmt.Sprintf("Failed to get existing commit message: %v", err)}
+			}
+			commitMessage = existingMessage
+		}
+
+		// Perform amend
+		err = m.repo.AmendCommit(commitMessage)
+		if err != nil {
+			return errorMsg{error: fmt.Sprintf("Failed to amend commit: %v", err)}
+		}
+
+		logger.LogUIAction("commit_amended", map[string]interface{}{
+			"message":     commitMessage,
+			"had_staged":  true, // amend always includes staged changes if any
+			"used_generated": m.generatedMessage != "",
+		})
+
+		// Clear generated message after successful amend
+		if m.generatedMessage != "" {
+			m.generatedMessage = ""
+			m.messageConfidence = 0
+		}
+
+		return operationCompletedMsg{message: "Commit amended successfully"}
+	}
+}

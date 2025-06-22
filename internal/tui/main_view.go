@@ -294,6 +294,7 @@ func (m *Model) renderQuickActions() string {
 		{"k", "Discard file changes"},
 		{"g", "Generate commit message"},
 		{"c", "Commit changes"},
+		{"1", "Amend last commit"},
 		{"d", "View diff"},
 	}
 

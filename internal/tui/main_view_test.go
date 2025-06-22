@@ -259,6 +259,7 @@ func TestRenderQuickActions(t *testing.T) {
 		"Space",
 		"Stage current file",
 		"Discard file changes",
+		"Amend last commit",
 		"Generate commit message",
 	}
 

@@ -411,6 +411,53 @@ func (r *Repository) StageAll() error {
 	return err
 }
 
+// AmendCommit amends the last commit with the specified message
+func (r *Repository) AmendCommit(message string) error {
+	if message == "" {
+		return fmt.Errorf("commit message cannot be empty")
+	}
+
+	// Check if there are any commits to amend
+	_, err := r.GetLastCommitHash()
+	if err != nil {
+		return fmt.Errorf("no commits found to amend: %v", err)
+	}
+
+	logger.LogGitOperation("amend_commit", []string{"commit", "--amend", "-m", message}, r.workDir, true, fmt.Sprintf("Amending commit with message: %s", message), nil)
+
+	_, err = r.runGitCommand("commit", "--amend", "-m", message)
+	if err != nil {
+		logger.LogGitOperation("amend_commit", []string{"commit", "--amend", "-m", message}, r.workDir, false, "", err)
+		return fmt.Errorf("failed to amend commit: %v", err)
+	}
+
+	logger.LogGitOperation("amend_commit", []string{"commit", "--amend", "-m", message}, r.workDir, true, "Commit amended successfully", nil)
+	return nil
+}
+
+// GetLastCommitMessage returns the message of the last commit
+func (r *Repository) GetLastCommitMessage() (string, error) {
+	// Check if there are any commits
+	_, err := r.GetLastCommitHash()
+	if err != nil {
+		return "", fmt.Errorf("no commits found: %v", err)
+	}
+
+	// Get the commit message using git log
+	output, err := r.runGitCommand("log", "-1", "--pretty=format:%s")
+	if err != nil {
+		return "", fmt.Errorf("failed to get last commit message: %v", err)
+	}
+
+	message := strings.TrimSpace(output)
+	if message == "" {
+		return "", fmt.Errorf("last commit has no message")
+	}
+
+	logger.LogGitOperation("get_last_commit_message", []string{"log", "-1", "--pretty=format:%s"}, r.workDir, true, fmt.Sprintf("Retrieved commit message: %s", message), nil)
+	return message, nil
+}
+
 // Commit creates a new commit with the specified message
 func (r *Repository) Commit(message string) error {
 	if message == "" {

@@ -317,13 +317,17 @@ func TestIsClean(t *testing.T) {
 	}
 }
 
-func TestDiscardChanges(t *testing.T) {
+func TestAmendCommit(t *testing.T) {
 	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "git-test-discard-*")
+	tempDir, err := os.MkdirTemp("", "git-test-amend-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Initialize git repository
 	cmd := exec.Command("git", "init")
@@ -335,10 +339,252 @@ func TestDiscardChanges(t *testing.T) {
 	// Configure git user for testing
 	configCmd := exec.Command("git", "config", "user.name", "Test User")
 	configCmd.Dir = tempDir
-	configCmd.Run()
+	if err := configCmd.Run(); err != nil {
+		t.Logf("Failed to set git user name: %v", err)
+	}
 	configCmd = exec.Command("git", "config", "user.email", "test@example.com")
 	configCmd.Dir = tempDir
-	configCmd.Run()
+	if err := configCmd.Run(); err != nil {
+		t.Logf("Failed to set git user email: %v", err)
+	}
+
+	repo := &Repository{workDir: tempDir}
+
+	t.Run("Amend commit with no existing commits", func(t *testing.T) {
+		err := repo.AmendCommit("amended message")
+		if err == nil {
+			t.Error("Expected error when amending with no existing commits")
+		}
+		if !strings.Contains(err.Error(), "no commits found") {
+			t.Errorf("Expected 'no commits found' error, got: %v", err)
+		}
+	})
+
+	// Create and commit a file for subsequent tests
+	testFile := filepath.Join(tempDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("original content"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	addCmd := exec.Command("git", "add", "test.txt")
+	addCmd.Dir = tempDir
+	if err := addCmd.Run(); err != nil {
+		t.Fatalf("Failed to add file: %v", err)
+	}
+
+	commitCmd := exec.Command("git", "commit", "-m", "initial commit")
+	commitCmd.Dir = tempDir
+	if err := commitCmd.Run(); err != nil {
+		t.Fatalf("Failed to create initial commit: %v", err)
+	}
+
+	t.Run("Amend commit successfully", func(t *testing.T) {
+		// Get original commit hash
+		originalHash, err := repo.GetLastCommitHash()
+		if err != nil {
+			t.Fatalf("Failed to get original commit hash: %v", err)
+		}
+
+		// Amend the commit
+		err = repo.AmendCommit("amended commit message")
+		if err != nil {
+			t.Fatalf("AmendCommit failed: %v", err)
+		}
+
+		// Verify commit hash changed
+		newHash, err := repo.GetLastCommitHash()
+		if err != nil {
+			t.Fatalf("Failed to get new commit hash: %v", err)
+		}
+
+		if originalHash == newHash {
+			t.Error("Expected commit hash to change after amend")
+		}
+
+		// Verify commit message changed
+		message, err := repo.GetLastCommitMessage()
+		if err != nil {
+			t.Fatalf("Failed to get commit message: %v", err)
+		}
+
+		if message != "amended commit message" {
+			t.Errorf("Expected message 'amended commit message', got '%s'", message)
+		}
+	})
+
+	t.Run("Amend commit with empty message", func(t *testing.T) {
+		err := repo.AmendCommit("")
+		if err == nil {
+			t.Error("Expected error when amending with empty message")
+		}
+		if !strings.Contains(err.Error(), "commit message cannot be empty") {
+			t.Errorf("Expected 'commit message cannot be empty' error, got: %v", err)
+		}
+	})
+
+	t.Run("Amend commit with staged changes", func(t *testing.T) {
+		// Modify and stage a file
+		if err := os.WriteFile(testFile, []byte("modified content"), 0644); err != nil {
+			t.Fatalf("Failed to modify test file: %v", err)
+		}
+
+		stageCmd := exec.Command("git", "add", "test.txt")
+		stageCmd.Dir = tempDir
+		if err := stageCmd.Run(); err != nil {
+			t.Fatalf("Failed to stage file: %v", err)
+		}
+
+		// Amend the commit
+		err := repo.AmendCommit("amended with staged changes")
+		if err != nil {
+			t.Fatalf("AmendCommit with staged changes failed: %v", err)
+		}
+
+		// Verify the staged changes were included
+		message, err := repo.GetLastCommitMessage()
+		if err != nil {
+			t.Fatalf("Failed to get commit message: %v", err)
+		}
+
+		if message != "amended with staged changes" {
+			t.Errorf("Expected message 'amended with staged changes', got '%s'", message)
+		}
+
+		// Verify no staged changes remain
+		hasStaged, err := repo.HasStagedChanges()
+		if err != nil {
+			t.Fatalf("Failed to check staged changes: %v", err)
+		}
+
+		if hasStaged {
+			t.Error("Expected no staged changes after amend")
+		}
+	})
+}
+
+func TestGetLastCommitMessage(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "git-test-message-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
+
+	// Initialize git repository
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to init git repo: %v", err)
+	}
+
+	// Configure git user for testing
+	configCmd := exec.Command("git", "config", "user.name", "Test User")
+	configCmd.Dir = tempDir
+	if err := configCmd.Run(); err != nil {
+		t.Logf("Failed to set git user name: %v", err)
+	}
+	configCmd = exec.Command("git", "config", "user.email", "test@example.com")
+	configCmd.Dir = tempDir
+	if err := configCmd.Run(); err != nil {
+		t.Logf("Failed to set git user email: %v", err)
+	}
+
+	repo := &Repository{workDir: tempDir}
+
+	t.Run("Get message with no commits", func(t *testing.T) {
+		_, err := repo.GetLastCommitMessage()
+		if err == nil {
+			t.Error("Expected error when getting message with no commits")
+		}
+		if !strings.Contains(err.Error(), "no commits found") {
+			t.Errorf("Expected 'no commits found' error, got: %v", err)
+		}
+	})
+
+	// Create and commit a file
+	testFile := filepath.Join(tempDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	addCmd := exec.Command("git", "add", "test.txt")
+	addCmd.Dir = tempDir
+	if err := addCmd.Run(); err != nil {
+		t.Fatalf("Failed to add file: %v", err)
+	}
+
+	commitMessage := "test commit message"
+	commitCmd := exec.Command("git", "commit", "-m", commitMessage)
+	commitCmd.Dir = tempDir
+	if err := commitCmd.Run(); err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+
+	t.Run("Get commit message successfully", func(t *testing.T) {
+		message, err := repo.GetLastCommitMessage()
+		if err != nil {
+			t.Fatalf("GetLastCommitMessage failed: %v", err)
+		}
+
+		if message != commitMessage {
+			t.Errorf("Expected message '%s', got '%s'", commitMessage, message)
+		}
+	})
+
+	// Test with multi-line commit message
+	multiLineMessage := "feat: add new feature"
+	commitCmd = exec.Command("git", "commit", "--allow-empty", "-m", multiLineMessage)
+	commitCmd.Dir = tempDir
+	if err := commitCmd.Run(); err != nil {
+		t.Fatalf("Failed to create multi-line commit: %v", err)
+	}
+
+	t.Run("Get multi-line commit message", func(t *testing.T) {
+		message, err := repo.GetLastCommitMessage()
+		if err != nil {
+			t.Fatalf("GetLastCommitMessage failed: %v", err)
+		}
+
+		if message != multiLineMessage {
+			t.Errorf("Expected message '%s', got '%s'", multiLineMessage, message)
+		}
+	})
+}
+
+func TestDiscardChanges(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "git-test-discard-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
+
+	// Initialize git repository
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to init git repo: %v", err)
+	}
+
+	// Configure git user for testing
+	configCmd := exec.Command("git", "config", "user.name", "Test User")
+	configCmd.Dir = tempDir
+	if err := configCmd.Run(); err != nil {
+		t.Logf("Failed to set git user name: %v", err)
+	}
+	configCmd = exec.Command("git", "config", "user.email", "test@example.com")
+	configCmd.Dir = tempDir
+	if err := configCmd.Run(); err != nil {
+		t.Logf("Failed to set git user email: %v", err)
+	}
 
 	repo := &Repository{workDir: tempDir}
 

@@ -83,6 +83,8 @@ func (m *Model) executeAction(action string) (tea.Model, tea.Cmd) {
 		return m, m.unstageAllFiles()
 	case "commit":
 		return m, m.commitStagedChanges()
+	case "amend_commit":
+		return m, m.amendLastCommit()
 	case "quick_commit":
 		return m.handleQuickCommit()
 	case "generate_message":

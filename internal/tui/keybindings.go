@@ -63,6 +63,7 @@ func (kbm *KeyBindingManager) initializeDefaultBindings() {
 		{"u", "unstage_file", "Unstage current file", []ViewMode{ViewModeStatus}},
 		{"c", "commit", "Commit staged changes", []ViewMode{ViewModeStatus}},
 		{"C", "quick_commit", "Quick commit with generated message", []ViewMode{ViewModeStatus}},
+		{"1", "amend_commit", "Amend last commit", []ViewMode{ViewModeStatus}},
 		{"g", "generate_message", "Generate commit message", []ViewMode{ViewModeStatus}},
 		{"G", "regenerate_message", "Regenerate commit message", []ViewMode{ViewModeStatus}},
 		{"R", "reset_file", "Reset current file", []ViewMode{ViewModeStatus}},
@@ -226,7 +227,7 @@ func (kbm *KeyBindingManager) GetFooterText(view ViewMode) string {
 
 	switch view {
 	case ViewModeStatus:
-		importantActions := []string{"toggle_file", "stage_file", "stage_all", "commit", "generate_message", "discard_changes", "diff", "log", "help", "quit"}
+		importantActions := []string{"toggle_file", "stage_file", "stage_all", "commit", "amend_commit", "generate_message", "discard_changes", "diff", "log", "help", "quit"}
 		for _, action := range importantActions {
 			if key := kbm.getKeyForAction(action, view); key != "" {
 				desc := kbm.getDescriptionForAction(action)
@@ -278,6 +279,7 @@ func (kbm *KeyBindingManager) getDescriptionForAction(action string) string {
 		"toggle_file":         "toggle",
 		"stage_all":           "stage all",
 		"commit":              "commit",
+		"amend_commit":        "amend",
 		"generate_message":    "generate",
 		"discard_changes":     "discard",
 		"diff":                "diff",
